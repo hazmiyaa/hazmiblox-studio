@@ -256,7 +256,7 @@
   <header>
     <div class="brand">
       <div class="kicker">hazmiya · roblox dev toolkit</div>
-      <h1>HA<b>ZMI </b><span>//</span></h1>
+      <h1>HA<b>ZMI</b><span>//</span></h1>
     </div>
     <div class="head-note">100% offline · client-side<br>no upload</div>
   </header>
@@ -571,7 +571,7 @@ sapa(&quot;Kul&quot;)"></textarea>
       <summary>⚙ Setelan default (dipakai file baru)</summary>
       <div class="def-grid">
         <div class="au-ctrl"><label>Speed</label><input type="range" id="defSpeed" min="0.5" max="2" step="0.05" value="1"><span class="v" id="defSpeedV">1.00x</span></div>
-        <div class="au-ctrl"><label>Pitch</label><input type="range" id="defPitch" min="-12" max="12" step="0.1" value="0"><span class="v" id="defPitchV">0 st</span></div>
+        <div class="au-ctrl"><label>Pitch</label><input type="range" id="defPitch" min="0.5" max="2" step="0.05" value="1"><span class="v" id="defPitchV">1.00x</span></div>
         <div class="au-ctrl"><label>Bass</label><input type="range" id="defBass" min="-15" max="15" step="1" value="0"><span class="v" id="defBassV">0 dB</span></div>
         <div class="au-ctrl"><label>Reverb</label><input type="range" id="defReverb" min="0" max="0.9" step="0.05" value="0"><span class="v" id="defReverbV">0%</span></div>
         <div class="au-ctrl"><label>Volume</label><input type="range" id="defVol" min="0" max="2" step="0.05" value="1"><span class="v" id="defVolV">100%</span></div>
@@ -1461,7 +1461,7 @@ window.addEventListener('resize',skyReflow);
   let audioCtx=null; const AC=()=>audioCtx||(audioCtx=new (window.AudioContext||window.webkitAudioContext)());
   const items=[];
   const DKEY='hazmi_audio_defaults';
-  const defaults={speed:1,pitch:0,bass:0,reverb:0,vol:1,fmt:'wav'};
+  const defaults={speed:1,pitch:1,bass:0,reverb:0,vol:1,fmt:'wav'};
   try{ const r=localStorage.getItem(DKEY); if(r)Object.assign(defaults,JSON.parse(r)); }catch(e){}
   function saveDefaults(){ try{ localStorage.setItem(DKEY,JSON.stringify(defaults)); }catch(e){} }
   const $=id=>document.getElementById(id);
@@ -1559,10 +1559,10 @@ window.addEventListener('resize',skyReflow);
   }
   async function renderOffline(item){
     const s0=item.buffer, rate=item.ctl.speed||1, cl=clipLen(item);
-    const pf=Math.pow(2,(item.ctl.pitch||0)/12), eff=rate*pf;
+    const pf=item.ctl.pitch||1, eff=rate*pf;
     const frames=Math.ceil(((cl/eff)+2.6)*s0.sampleRate);
     const oc=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(s0.numberOfChannels, frames, s0.sampleRate);
-    const src=oc.createBufferSource(); src.buffer=s0; src.playbackRate.value=rate; src.detune.value=(item.ctl.pitch||0)*100;
+    const src=oc.createBufferSource(); src.buffer=s0; src.playbackRate.value=rate; src.detune.value=1200*Math.log2(item.ctl.pitch||1);
     buildChain(oc, src, item.ctl);
     src.start(0, item.ctl.ts, cl);
     const r=await oc.startRendering();
@@ -1610,7 +1610,7 @@ window.addEventListener('resize',skyReflow);
     return new Blob(data,{type:'audio/mpeg'});
   }
   const baseName=item=>item.name.replace(/\.[^.]+$/,'').replace(/[^\w\- ]+/g,'').trim()||'audio';
-  function settingsTag(item){ const p=[]; if(Math.abs(item.ctl.speed-1)>1e-3)p.push('spd'+item.ctl.speed.toFixed(2)); if(Math.abs(item.ctl.pitch)>1e-6){ const pt=Math.round(item.ctl.pitch*10)/10; p.push('pit'+(pt>0?'+':'')+pt); } return p.length?('_'+p.join('_')).replace(/\./g,'-'):''; }
+  function settingsTag(item){ const p=[]; if(Math.abs(item.ctl.speed-1)>1e-3)p.push('spd'+item.ctl.speed.toFixed(2)); if(Math.abs(item.ctl.pitch-1)>1e-3)p.push('pit'+item.ctl.pitch.toFixed(2)); return p.length?('_'+p.join('_')).replace(/\./g,'-'):''; }
   async function makeBlob(item){ const p=await renderOffline(item); const fmt=$('expFmt').value; return fmt==='mp3'?{blob:encodeMp3(p.channels,p.sampleRate),ext:'mp3'}:{blob:encodeWav(p.channels,p.sampleRate),ext:'wav'}; }
 
   async function exportItem(item,setStatus){
@@ -1686,7 +1686,7 @@ window.addEventListener('resize',skyReflow);
         const src=ctx.createBufferSource(); src.buffer=item.buffer;
         const ctl=(mode==='orig')?{bass:0,treble:0,reverb:0,vol:1}:item.ctl;
         src.playbackRate.value=(mode==='orig')?1:(item.ctl.speed||1);
-        src.detune.value=(mode==='orig')?0:((item.ctl.pitch||0)*100);
+        src.detune.value=(mode==='orig')?0:(1200*Math.log2(item.ctl.pitch||1));
         chain=buildChain(ctx,src,ctl);
         const base=(mode==='orig')?0:item.ctl.ts;
         src.start(0, base+playedBT, Math.max(0.01,curDur-playedBT));
@@ -1719,7 +1719,7 @@ window.addEventListener('resize',skyReflow);
       ctrls.appendChild(mk('Trim in',0,dur,0.01,item.ctl.ts,v=>fmtTime(v),v=>{item.ctl.ts=Math.min(v,item.ctl.te-0.05)},onTrim));
       ctrls.appendChild(mk('Trim out',0,dur,0.01,item.ctl.te,v=>fmtTime(v),v=>{item.ctl.te=Math.max(v,item.ctl.ts+0.05)},onTrim));
       ctrls.appendChild(mk('Speed',0.5,2,0.05,item.ctl.speed,v=>v.toFixed(2)+'x',v=>{item.ctl.speed=v},v=>{ if(playing&&srcRef)srcRef.playbackRate.value=v; }));
-      ctrls.appendChild(mk('Pitch',-12,12,0.1,item.ctl.pitch,v=>{const n=Math.round(v*10)/10;return (n>0?'+':'')+n+' st';},v=>{item.ctl.pitch=v},v=>{ if(playing&&srcRef)srcRef.detune.value=v*100; }));
+      ctrls.appendChild(mk('Pitch',0.5,2,0.05,item.ctl.pitch,v=>v.toFixed(2)+'x',v=>{item.ctl.pitch=v},v=>{ if(playing&&srcRef)srcRef.detune.value=1200*Math.log2(v||1); }));
       ctrls.appendChild(mk('Bass',-15,15,1,item.ctl.bass,v=>(v>0?'+':'')+v+' dB',v=>{item.ctl.bass=v},v=>{ if(chain)chain.bass.gain.value=v; }));
       ctrls.appendChild(mk('Treble',-15,15,1,item.ctl.treble,v=>(v>0?'+':'')+v+' dB',v=>{item.ctl.treble=v},v=>{ if(chain)chain.treble.gain.value=v; }));
       ctrls.appendChild(mk('Reverb',0,0.9,0.05,item.ctl.reverb,v=>Math.round(v*100)+'%',v=>{item.ctl.reverb=v},v=>{ if(chain)chain.wet.gain.value=v; }));
@@ -1730,13 +1730,12 @@ window.addEventListener('resize',skyReflow);
       const invRow=document.createElement('div');invRow.className='au-invert';
       const invLbl=document.createElement('span');invLbl.className='inv-lbl';
       const invCopy=document.createElement('button');invCopy.className='inv-copy';invCopy.textContent='copy';
-      const invText=()=>{ const ip=Math.round((-item.ctl.pitch)*10)/10; return 'speed '+(1/item.ctl.speed).toFixed(2)+'x, pitch '+ip+'st'; };
+      const invText=()=>'speed '+(1/item.ctl.speed).toFixed(2)+'x, pitch '+(1/item.ctl.pitch).toFixed(2)+'x';
       function updateInvert(){
-        if(Math.abs(item.ctl.speed-1)<1e-3 && Math.abs(item.ctl.pitch)<1e-6){
-          invLbl.textContent='✓ setelan normal (speed 1.00x · pitch 0)'; invRow.classList.add('normal'); invCopy.style.display='none';
+        if(Math.abs(item.ctl.speed-1)<1e-3 && Math.abs(item.ctl.pitch-1)<1e-3){
+          invLbl.textContent='✓ setelan normal (speed 1.00x · pitch 1.00x)'; invRow.classList.add('normal'); invCopy.style.display='none';
         }else{
-          const ip=Math.round((-item.ctl.pitch)*10)/10;
-          invLbl.textContent='↺ balik ke original: speed '+(1/item.ctl.speed).toFixed(2)+'x · pitch '+(ip>0?'+':'')+ip+' st';
+          invLbl.textContent='↺ balik ke original: speed '+(1/item.ctl.speed).toFixed(2)+'x · pitch '+(1/item.ctl.pitch).toFixed(2)+'x';
           invRow.classList.remove('normal'); invCopy.style.display='';
         }
       }
@@ -1762,7 +1761,7 @@ window.addEventListener('resize',skyReflow);
     const sp=$('defSpeed'),pi=$('defPitch'),ba=$('defBass'),rv=$('defReverb'),vo=$('defVol'),fmt=$('expFmt');
     if(!sp)return;
     sp.value=defaults.speed; pi.value=defaults.pitch; ba.value=defaults.bass; rv.value=defaults.reverb; vo.value=defaults.vol; if(fmt)fmt.value=defaults.fmt;
-    const upd=()=>{ $('defSpeedV').textContent=(+sp.value).toFixed(2)+'x'; const pn=Math.round(+pi.value*10)/10; $('defPitchV').textContent=(pn>0?'+':'')+pn+' st'; $('defBassV').textContent=((+ba.value)>0?'+':'')+(+ba.value)+' dB'; $('defReverbV').textContent=Math.round((+rv.value)*100)+'%'; $('defVolV').textContent=Math.round((+vo.value)*100)+'%'; };
+    const upd=()=>{ $('defSpeedV').textContent=(+sp.value).toFixed(2)+'x'; $('defPitchV').textContent=(+pi.value).toFixed(2)+'x'; $('defBassV').textContent=((+ba.value)>0?'+':'')+(+ba.value)+' dB'; $('defReverbV').textContent=Math.round((+rv.value)*100)+'%'; $('defVolV').textContent=Math.round((+vo.value)*100)+'%'; };
     upd();
     sp.oninput=()=>{ defaults.speed=+sp.value; upd(); saveDefaults(); };
     pi.oninput=()=>{ defaults.pitch=+pi.value; upd(); saveDefaults(); };
