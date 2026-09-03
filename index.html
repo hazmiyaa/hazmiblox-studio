@@ -270,7 +270,7 @@
   <header>
     <div class="brand">
       <div class="kicker">hazmiya · roblox dev toolkit</div>
-      <h1>HA<b>ZMI</b><span>//</span></h1>
+      <h1>HAZMIYA<b>TOOLKIT NEW</b><span>//</span></h1>
     </div>
     <div class="head-note">100% offline · client-side<br>no upload</div>
   </header>
@@ -595,8 +595,8 @@ sapa(&quot;Kul&quot;)"></textarea>
 
     <div class="export-bar hidden" id="audioBar">
       <label>Format Export</label>
-      <select id="expFmt"><option value="ogg">OGG (kecil, disaranin)</option><option value="mp3">MP3</option><option value="wav">WAV (lossless, gede)</option></select>
-      <span style="font-size:11px;color:var(--muted)">MP3 butuh koneksi internet (lib encoder). WAV selalu jalan offline.</span>
+      <select id="expFmt"><option value="mp3">MP3 (kecil, disaranin)</option><option value="wav">WAV (lossless, bisa &gt;20MB)</option></select>
+      <span style="font-size:11px;color:var(--muted)">MP3 = file kecil, cocok buat limit 20MB Roblox (butuh internet sekali buat lib encoder). WAV lossless tapi gede.</span>
     </div>
 
     <div class="audio-list" id="audioList"></div>
@@ -1475,8 +1475,9 @@ window.addEventListener('resize',skyReflow);
   let audioCtx=null; const AC=()=>audioCtx||(audioCtx=new (window.AudioContext||window.webkitAudioContext)());
   const items=[];
   const DKEY='hazmi_audio_defaults_v2';
-  const defaults={speed:1,pitch:1,bass:0,reverb:0,vol:1,fmt:'wav'};
+  const defaults={speed:1,pitch:1,bass:0,reverb:0,vol:1,fmt:'mp3'};
   try{ const r=localStorage.getItem(DKEY); if(r)Object.assign(defaults,JSON.parse(r)); }catch(e){}
+  if(defaults.fmt!=='mp3'&&defaults.fmt!=='wav')defaults.fmt='mp3';
   if(!(defaults.speed>=0.25&&defaults.speed<=3))defaults.speed=1;
   if(!(defaults.pitch>=0.5&&defaults.pitch<=2))defaults.pitch=1;
   if(!(defaults.vol>=0&&defaults.vol<=2))defaults.vol=1;
@@ -1629,38 +1630,10 @@ window.addEventListener('resize',skyReflow);
   const baseName=item=>item.name.replace(/\.[^.]+$/,'').replace(/[^\w\- ]+/g,'').trim()||'audio';
   function settingsTag(item){ const p=[]; if(Math.abs(item.ctl.speed-1)>1e-3)p.push('spd'+item.ctl.speed.toFixed(2)); if(Math.abs(item.ctl.pitch-1)>1e-3)p.push('pit'+item.ctl.pitch.toFixed(2)); return p.length?('_'+p.join('_')).replace(/\./g,'-'):''; }
 
-  // OGG (or webm-opus fallback) via MediaRecorder — jauh lebih kecil dari WAV
-  function pickOggMime(){
-    if(typeof MediaRecorder==='undefined')return null;
-    for(const m of ['audio/ogg;codecs=opus','audio/ogg','audio/webm;codecs=opus','audio/webm']){
-      if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))return m;
-    }
-    return null;
-  }
-  function encodeOgg(channels, sr){
-    return new Promise((resolve,reject)=>{
-      const mime=pickOggMime();
-      if(!mime){ reject(new Error('browser gak support export OGG — pakai MP3/WAV')); return; }
-      const ctx=new (window.AudioContext||window.webkitAudioContext)({sampleRate:sr});
-      const buf=ctx.createBuffer(channels.length,channels[0].length,sr);
-      channels.forEach((c,i)=>buf.copyToChannel(c,i));
-      const src=ctx.createBufferSource(); src.buffer=buf;
-      const dest=ctx.createMediaStreamDestination(); src.connect(dest);
-      const rec=new MediaRecorder(dest.stream,{mimeType:mime,audioBitsPerSecond:192000});
-      const parts=[];
-      rec.ondataavailable=e=>{ if(e.data&&e.data.size)parts.push(e.data); };
-      rec.onstop=()=>{ ctx.close&&ctx.close(); const ext=mime.indexOf('ogg')>=0?'ogg':'webm'; resolve({blob:new Blob(parts,{type:mime}),ext}); };
-      rec.onerror=e=>reject(new Error('rekam OGG gagal'));
-      src.onended=()=>{ setTimeout(()=>{ if(rec.state!=='inactive')rec.stop(); },120); };
-      rec.start(); src.start();
-    });
-  }
-
   async function makeBlob(item){
     const p=await renderOffline(item); const fmt=$('expFmt').value;
-    if(fmt==='mp3')return {blob:encodeMp3(p.channels,p.sampleRate),ext:'mp3'};
-    if(fmt==='ogg')return await encodeOgg(p.channels,p.sampleRate);
-    return {blob:encodeWav(p.channels,p.sampleRate),ext:'wav'};
+    if(fmt==='wav')return {blob:encodeWav(p.channels,p.sampleRate),ext:'wav'};
+    return {blob:encodeMp3(p.channels,p.sampleRate),ext:'mp3'};
   }
 
   async function exportItem(item,setStatus){
