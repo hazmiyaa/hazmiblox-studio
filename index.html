@@ -241,6 +241,14 @@
   .def-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px 18px}
   @media(max-width:640px){.def-grid{grid-template-columns:1fr}}
   .def-note{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}
+  .fix-note{font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6}
+  .fix-note b{color:var(--gold)}
+  .fix-result{margin-top:14px;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:12px 14px}
+  .fix-line{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .fix-attrs{display:flex;gap:10px;flex-wrap:wrap}
+  .fix-attr{font-family:var(--mono);font-size:14px;color:var(--dim);background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:8px 12px}
+  .fix-attr b{color:var(--gold)}
+  .fix-warn{font-size:11px;color:var(--warn);margin-top:8px;min-height:0;line-height:1.5}
   .au-player{display:flex;align-items:center;gap:12px;margin-bottom:12px;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:10px 12px}
   .play-btn{background:var(--gold);color:#241800;border:0;width:34px;height:34px;border-radius:50%;font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
   .play-btn:hover{box-shadow:0 0 10px rgba(255,191,71,.5)}
@@ -256,7 +264,7 @@
   <header>
     <div class="brand">
       <div class="kicker">hazmiya · roblox dev toolkit</div>
-      <h1>HA<b>ZMI</b><span>//</span></h1>
+      <h1>HA<b>ZMI ToolKit</b><span>//</span></h1>
     </div>
     <div class="head-note">100% offline · client-side<br>no upload</div>
   </header>
@@ -577,6 +585,21 @@ sapa(&quot;Kul&quot;)"></textarea>
         <div class="au-ctrl"><label>Volume</label><input type="range" id="defVol" min="0" max="2" step="0.05" value="1"><span class="v" id="defVolV">100%</span></div>
       </div>
       <div class="def-note">Tiap file baru bakal mulai dari setelan ini. Tombol ↺ Reset di tiap item balikin ke sini.</div>
+    </details>
+
+    <details class="audio-defaults" id="fixCalc" open>
+      <summary>🎯 Kalkulator Koreksi — cari attribute Roblox biar musik normal</summary>
+      <div class="fix-note">Masukin edit yang <b>udah</b> keterlanjur diterapin ke file. Tool ngasih angka <b>Speed &amp; Pitch</b> buat di-set di attribute Sound (ServerStorage.Music) biar diputer normal lagi.</div>
+      <div class="def-grid">
+        <div class="au-ctrl"><label>Edit Speed</label><input type="range" id="fxSpeed" min="0.25" max="3" step="0.05" value="1"><span class="v" id="fxSpeedV">1.00x</span></div>
+        <div class="au-ctrl"><label>Edit Pitch</label><input type="range" id="fxPitch" min="0.5" max="2" step="0.05" value="1"><span class="v" id="fxPitchV">1.00x</span></div>
+      </div>
+      <div class="fix-result" id="fxResult">
+        <div class="fix-line">Set di attribute Sound:</div>
+        <div class="fix-attrs"><span class="fix-attr">Speed = <b id="fxOutSpeed">1.00</b></span><span class="fix-attr">Pitch = <b id="fxOutPitch">1.00</b></span></div>
+        <div class="fix-warn" id="fxWarn"></div>
+        <button class="inv-copy" id="fxCopy" style="margin-top:8px">copy angka</button>
+      </div>
     </details>
 
     <div class="export-bar hidden" id="audioBar">
@@ -1775,6 +1798,28 @@ window.addEventListener('resize',skyReflow);
     return el;
   }
   function renderList(){ listEl.innerHTML=''; items.forEach(it=>listEl.appendChild(makeCard(it))); }
+
+  (function wireFixCalc(){
+    const sp=$('fxSpeed'), pi=$('fxPitch');
+    if(!sp)return;
+    const CLAMP={ speed:[0.25,3], pitch:[0.5,2] };
+    function calc(){
+      const es=+sp.value, ep=+pi.value;
+      $('fxSpeedV').textContent=es.toFixed(2)+'x';
+      $('fxPitchV').textContent=ep.toFixed(2)+'x';
+      const cs=1/es, cp=1/ep;
+      const csC=Math.min(CLAMP.speed[1],Math.max(CLAMP.speed[0],cs));
+      const cpC=Math.min(CLAMP.pitch[1],Math.max(CLAMP.pitch[0],cp));
+      $('fxOutSpeed').textContent=csC.toFixed(2);
+      $('fxOutPitch').textContent=cpC.toFixed(2);
+      const warns=[];
+      if(Math.abs(cs-csC)>1e-3)warns.push('Speed '+cs.toFixed(2)+' di luar batas Roblox (0.25–3), dipotong ke '+csC.toFixed(2)+' — gak bisa balik 100% normal.');
+      if(Math.abs(cp-cpC)>1e-3)warns.push('Pitch '+cp.toFixed(2)+' di luar batas Roblox (0.5–2), dipotong ke '+cpC.toFixed(2)+'.');
+      $('fxWarn').textContent=warns.join(' ');
+    }
+    sp.oninput=calc; pi.oninput=calc; calc();
+    $('fxCopy').onclick=()=>{ const t='Speed = '+$('fxOutSpeed').textContent+', Pitch = '+$('fxOutPitch').textContent; if(navigator.clipboard)navigator.clipboard.writeText(t).catch(()=>{}); const b=$('fxCopy'); const o=b.textContent; b.textContent='tersalin'; setTimeout(()=>b.textContent=o,900); };
+  })();
 
   (function wireDefaults(){
     const sp=$('defSpeed'),pi=$('defPitch'),ba=$('defBass'),rv=$('defReverb'),vo=$('defVol'),fmt=$('expFmt');
