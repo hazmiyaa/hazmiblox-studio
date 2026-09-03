@@ -249,6 +249,12 @@
   .fix-attr{font-family:var(--mono);font-size:14px;color:var(--dim);background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:8px 12px}
   .fix-attr b{color:var(--gold)}
   .fix-warn{font-size:11px;color:var(--warn);margin-top:8px;min-height:0;line-height:1.5}
+  .au-fixdet{border:1px solid var(--line);border-radius:3px;padding:10px 12px;margin-bottom:12px;background:var(--ink)}
+  .au-fixdet summary{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);cursor:pointer;list-style:none}
+  .au-fixdet summary::-webkit-details-marker{display:none}
+  .au-fixdet[open] summary{margin-bottom:10px}
+  .au-fix-hint{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+  .au-fix-result{margin-top:10px;background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:10px 12px}
   .au-player{display:flex;align-items:center;gap:12px;margin-bottom:12px;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:10px 12px}
   .play-btn{background:var(--gold);color:#241800;border:0;width:34px;height:34px;border-radius:50%;font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
   .play-btn:hover{box-shadow:0 0 10px rgba(255,191,71,.5)}
@@ -264,7 +270,7 @@
   <header>
     <div class="brand">
       <div class="kicker">hazmiya · roblox dev toolkit</div>
-      <h1>HA<b>ZMI ToolKit</b><span>//</span></h1>
+      <h1>HAZMI<b>TOOLKIT</b><span>//</span></h1>
     </div>
     <div class="head-note">100% offline · client-side<br>no upload</div>
   </header>
@@ -585,21 +591,6 @@ sapa(&quot;Kul&quot;)"></textarea>
         <div class="au-ctrl"><label>Volume</label><input type="range" id="defVol" min="0" max="2" step="0.05" value="1"><span class="v" id="defVolV">100%</span></div>
       </div>
       <div class="def-note">Tiap file baru bakal mulai dari setelan ini. Tombol ↺ Reset di tiap item balikin ke sini.</div>
-    </details>
-
-    <details class="audio-defaults" id="fixCalc" open>
-      <summary>🎯 Kalkulator Koreksi — cari attribute Roblox biar musik normal</summary>
-      <div class="fix-note">Masukin edit yang <b>udah</b> keterlanjur diterapin ke file. Tool ngasih angka <b>Speed &amp; Pitch</b> buat di-set di attribute Sound (ServerStorage.Music) biar diputer normal lagi.</div>
-      <div class="def-grid">
-        <div class="au-ctrl"><label>Edit Speed</label><input type="range" id="fxSpeed" min="0.25" max="3" step="0.05" value="1"><span class="v" id="fxSpeedV">1.00x</span></div>
-        <div class="au-ctrl"><label>Edit Pitch</label><input type="range" id="fxPitch" min="0.5" max="2" step="0.05" value="1"><span class="v" id="fxPitchV">1.00x</span></div>
-      </div>
-      <div class="fix-result" id="fxResult">
-        <div class="fix-line">Set di attribute Sound:</div>
-        <div class="fix-attrs"><span class="fix-attr">Speed = <b id="fxOutSpeed">1.00</b></span><span class="fix-attr">Pitch = <b id="fxOutPitch">1.00</b></span></div>
-        <div class="fix-warn" id="fxWarn"></div>
-        <button class="inv-copy" id="fxCopy" style="margin-top:8px">copy angka</button>
-      </div>
     </details>
 
     <div class="export-bar hidden" id="audioBar">
@@ -1483,9 +1474,12 @@ window.addEventListener('resize',skyReflow);
   "use strict";
   let audioCtx=null; const AC=()=>audioCtx||(audioCtx=new (window.AudioContext||window.webkitAudioContext)());
   const items=[];
-  const DKEY='hazmi_audio_defaults';
+  const DKEY='hazmi_audio_defaults_v2';
   const defaults={speed:1,pitch:1,bass:0,reverb:0,vol:1,fmt:'wav'};
   try{ const r=localStorage.getItem(DKEY); if(r)Object.assign(defaults,JSON.parse(r)); }catch(e){}
+  if(!(defaults.speed>=0.25&&defaults.speed<=3))defaults.speed=1;
+  if(!(defaults.pitch>=0.5&&defaults.pitch<=2))defaults.pitch=1;
+  if(!(defaults.vol>=0&&defaults.vol<=2))defaults.vol=1;
   function saveDefaults(){ try{ localStorage.setItem(DKEY,JSON.stringify(defaults)); }catch(e){} }
   const $=id=>document.getElementById(id);
   const drop=$('audioDrop'), fin=$('audioIn'), listEl=$('audioList'), bar=$('audioBar');
@@ -1761,28 +1755,41 @@ window.addEventListener('resize',skyReflow);
       ctrls.appendChild(mk('Trim in',0,dur,0.01,item.ctl.ts,v=>fmtTime(v),v=>{item.ctl.ts=Math.min(v,item.ctl.te-0.05)},onTrim));
       ctrls.appendChild(mk('Trim out',0,dur,0.01,item.ctl.te,v=>fmtTime(v),v=>{item.ctl.te=Math.max(v,item.ctl.ts+0.05)},onTrim));
       ctrls.appendChild(mk('Speed',0.25,3,0.05,item.ctl.speed,v=>v.toFixed(2)+'x',v=>{item.ctl.speed=v},v=>{ if(playing&&srcRef)srcRef.playbackRate.value=v; }));
-      ctrls.appendChild(mk('Pitch',0.5,2,0.05,item.ctl.pitch,v=>v.toFixed(2)+'x',v=>{item.ctl.pitch=v},null,v=>{ item._pitchKey=null; if(playing){ setStatus('memproses pitch…'); setTimeout(()=>{ restart(); setStatus(''); },10); } }));
+      ctrls.appendChild(mk('Pitch',0.5,2,0.05,item.ctl.pitch,v=>v.toFixed(2)+'x',v=>{item.ctl.pitch=v},null,v=>{ item._pitchKey=null; if(typeof updateInvert==='function')updateInvert(); if(playing){ setStatus('memproses pitch…'); setTimeout(()=>{ restart(); setStatus(''); },10); } }));
       ctrls.appendChild(mk('Bass',-15,15,1,item.ctl.bass,v=>(v>0?'+':'')+v+' dB',v=>{item.ctl.bass=v},v=>{ if(chain)chain.bass.gain.value=v; }));
       ctrls.appendChild(mk('Treble',-15,15,1,item.ctl.treble,v=>(v>0?'+':'')+v+' dB',v=>{item.ctl.treble=v},v=>{ if(chain)chain.treble.gain.value=v; }));
       ctrls.appendChild(mk('Reverb',0,0.9,0.05,item.ctl.reverb,v=>Math.round(v*100)+'%',v=>{item.ctl.reverb=v},v=>{ if(chain)chain.wet.gain.value=v; }));
       ctrls.appendChild(mk('Volume',0,2,0.05,item.ctl.vol,v=>Math.round(v*100)+'%',v=>{item.ctl.vol=v},v=>{ if(chain)chain.vol.gain.value=v; }));
       el.appendChild(ctrls);
 
-      // ---- readout: setelan buat balikin ke original ----
-      const invRow=document.createElement('div');invRow.className='au-invert';
-      const invLbl=document.createElement('span');invLbl.className='inv-lbl';
-      const invCopy=document.createElement('button');invCopy.className='inv-copy';invCopy.textContent='copy';
-      const invText=()=>'speed '+(1/item.ctl.speed).toFixed(2)+'x, pitch '+(1/item.ctl.pitch).toFixed(2)+'x';
+      const pitchNote=document.createElement('div');pitchNote.className='au-fix-hint';pitchNote.style.margin='0 0 10px';
+      pitchNote.innerHTML='ℹ️ Preview <b>Pitch</b> di sini cuma perkiraan (agak kasar) & baru keproses pas slider dilepas. Patokannya <b>angka attribute</b> di bawah — hasil asli lebih mulus pas dites di Roblox Studio.';
+      el.appendChild(pitchNote);
+
+      const invRow=document.createElement('div');invRow.className='au-invert';invRow.style.flexDirection='column';invRow.style.alignItems='stretch';invRow.style.gap='6px';
+      const invLbl=document.createElement('div');invLbl.className='inv-lbl';
+      const invSub=document.createElement('div');invSub.className='inv-lbl';invSub.style.fontSize='11px';invSub.style.color='var(--muted)';
+      const invRowBtns=document.createElement('div');invRowBtns.style.display='flex';invRowBtns.style.gap='6px';invRowBtns.style.flexWrap='wrap';
+      const invCopy=document.createElement('button');invCopy.className='inv-copy';invCopy.textContent='copy (biar normal)';
+      const invCopyEdit=document.createElement('button');invCopyEdit.className='inv-copy';invCopyEdit.textContent='copy (biar ke-edit)';
+      const clampS=x=>Math.min(3,Math.max(0.25,x)), clampP=x=>Math.min(2,Math.max(0.5,x));
+      const invText=()=>'Speed = '+clampS(1/item.ctl.speed).toFixed(2)+', Pitch = '+clampP(1/item.ctl.pitch).toFixed(2);
+      const editText=()=>'Speed = '+item.ctl.speed.toFixed(2)+', Pitch = '+item.ctl.pitch.toFixed(2);
       function updateInvert(){
-        if(Math.abs(item.ctl.speed-1)<1e-3 && Math.abs(item.ctl.pitch-1)<1e-3){
-          invLbl.textContent='✓ setelan normal (speed 1.00x · pitch 1.00x)'; invRow.classList.add('normal'); invCopy.style.display='none';
-        }else{
-          invLbl.textContent='↺ balik ke original: speed '+(1/item.ctl.speed).toFixed(2)+'x · pitch '+(1/item.ctl.pitch).toFixed(2)+'x';
-          invRow.classList.remove('normal'); invCopy.style.display='';
+        const s=item.ctl.speed, p=item.ctl.pitch;
+        if(Math.abs(s-1)<1e-3 && Math.abs(p-1)<1e-3){
+          invLbl.textContent='📎 belum ada edit (Speed 1.00 · Pitch 1.00)'; invSub.textContent='';
+          invRow.classList.add('normal'); invRowBtns.style.display='none'; return;
         }
+        invRow.classList.remove('normal'); invRowBtns.style.display='flex';
+        const cs=clampS(1/s), cp=clampP(1/p);
+        invLbl.innerHTML='📎 upload FILE HASIL EDIT → biar di Roblox <b>balik normal</b>: Speed = '+cs.toFixed(2)+' · Pitch = '+cp.toFixed(2);
+        invSub.innerHTML='atau upload FILE MENTAH → biar di Roblox <b>ke-edit</b>: Speed = '+s.toFixed(2)+' · Pitch = '+p.toFixed(2)+' (kualitas lebih bagus)';
       }
       invCopy.onclick=()=>{ if(navigator.clipboard)navigator.clipboard.writeText(invText()).catch(()=>{}); const o=invCopy.textContent;invCopy.textContent='tersalin';setTimeout(()=>invCopy.textContent=o,900); };
-      invRow.appendChild(invLbl);invRow.appendChild(invCopy);el.appendChild(invRow);
+      invCopyEdit.onclick=()=>{ if(navigator.clipboard)navigator.clipboard.writeText(editText()).catch(()=>{}); const o=invCopyEdit.textContent;invCopyEdit.textContent='tersalin';setTimeout(()=>invCopyEdit.textContent=o,900); };
+      invRowBtns.appendChild(invCopy);invRowBtns.appendChild(invCopyEdit);
+      invRow.appendChild(invLbl);invRow.appendChild(invSub);invRow.appendChild(invRowBtns);el.appendChild(invRow);
       updateInvert();
 
       // ---- actions ----
@@ -1798,28 +1805,6 @@ window.addEventListener('resize',skyReflow);
     return el;
   }
   function renderList(){ listEl.innerHTML=''; items.forEach(it=>listEl.appendChild(makeCard(it))); }
-
-  (function wireFixCalc(){
-    const sp=$('fxSpeed'), pi=$('fxPitch');
-    if(!sp)return;
-    const CLAMP={ speed:[0.25,3], pitch:[0.5,2] };
-    function calc(){
-      const es=+sp.value, ep=+pi.value;
-      $('fxSpeedV').textContent=es.toFixed(2)+'x';
-      $('fxPitchV').textContent=ep.toFixed(2)+'x';
-      const cs=1/es, cp=1/ep;
-      const csC=Math.min(CLAMP.speed[1],Math.max(CLAMP.speed[0],cs));
-      const cpC=Math.min(CLAMP.pitch[1],Math.max(CLAMP.pitch[0],cp));
-      $('fxOutSpeed').textContent=csC.toFixed(2);
-      $('fxOutPitch').textContent=cpC.toFixed(2);
-      const warns=[];
-      if(Math.abs(cs-csC)>1e-3)warns.push('Speed '+cs.toFixed(2)+' di luar batas Roblox (0.25–3), dipotong ke '+csC.toFixed(2)+' — gak bisa balik 100% normal.');
-      if(Math.abs(cp-cpC)>1e-3)warns.push('Pitch '+cp.toFixed(2)+' di luar batas Roblox (0.5–2), dipotong ke '+cpC.toFixed(2)+'.');
-      $('fxWarn').textContent=warns.join(' ');
-    }
-    sp.oninput=calc; pi.oninput=calc; calc();
-    $('fxCopy').onclick=()=>{ const t='Speed = '+$('fxOutSpeed').textContent+', Pitch = '+$('fxOutPitch').textContent; if(navigator.clipboard)navigator.clipboard.writeText(t).catch(()=>{}); const b=$('fxCopy'); const o=b.textContent; b.textContent='tersalin'; setTimeout(()=>b.textContent=o,900); };
-  })();
 
   (function wireDefaults(){
     const sp=$('defSpeed'),pi=$('defPitch'),ba=$('defBass'),rv=$('defReverb'),vo=$('defVol'),fmt=$('expFmt');
