@@ -270,7 +270,7 @@
   <header>
     <div class="brand">
       <div class="kicker">hazmiya · roblox dev toolkit</div>
-      <h1>HAZMIYA<b>TOOLKIT NEW</b><span>//</span></h1>
+      <h1>HAZMI<b>TOOLKIT NEW</b><span>//</span></h1>
     </div>
     <div class="head-note">100% offline · client-side<br>no upload</div>
   </header>
@@ -1575,12 +1575,25 @@ window.addEventListener('resize',skyReflow);
     out.connect(ctx.destination);
     return {bass,treble,vol,dry,wet,conv,out};
   }
+  function buildPitchBuffer(item){
+    const ctx=AC(); const ch=getChannels(item.buffer);
+    const sem=12*Math.log2(item.ctl.pitch||1);
+    const out=pitchShift(ch,sem);
+    const b=ctx.createBuffer(out.length,out[0].length,item.buffer.sampleRate);
+    out.forEach((c,i)=>b.copyToChannel(c,i));
+    return b;
+  }
   async function renderOffline(item){
     const s0=item.buffer, rate=item.ctl.speed||1, cl=clipLen(item);
-    const pf=item.ctl.pitch||1, eff=rate*pf;
-    const frames=Math.ceil(((cl/eff)+2.6)*s0.sampleRate);
+    const frames=Math.ceil(((cl/rate)+2.6)*s0.sampleRate);
     const oc=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(s0.numberOfChannels, frames, s0.sampleRate);
-    const src=oc.createBufferSource(); src.buffer=s0; src.playbackRate.value=rate; src.detune.value=1200*Math.log2(item.ctl.pitch||1);
+    let srcBuf=s0;
+    if(Math.abs(item.ctl.pitch-1)>1e-3){
+      const ch=getChannels(s0), out=pitchShift(ch,12*Math.log2(item.ctl.pitch||1));
+      srcBuf=oc.createBuffer(out.length,out[0].length,s0.sampleRate);
+      out.forEach((c,i)=>srcBuf.copyToChannel(c,i));
+    }
+    const src=oc.createBufferSource(); src.buffer=srcBuf; src.playbackRate.value=rate;
     buildChain(oc, src, item.ctl);
     src.start(0, item.ctl.ts, cl);
     const r=await oc.startRendering();
@@ -1707,10 +1720,14 @@ window.addEventListener('resize',skyReflow);
         stopAll(); const ctx=AC(); if(ctx.state==='suspended')ctx.resume();
         curDur=curDurNow(); if(playedBT>=curDur-0.02)playedBT=0;
         const src=ctx.createBufferSource();
-        src.buffer=item.buffer;
+        let playBuf=item.buffer;
+        if(mode!=='orig' && Math.abs(item.ctl.pitch-1)>1e-3){
+          if(item._pitchKey!==item.ctl.pitch){ item._pitchBuf=buildPitchBuffer(item); item._pitchKey=item.ctl.pitch; }
+          playBuf=item._pitchBuf;
+        }
+        src.buffer=playBuf;
         const ctl=(mode==='orig')?{bass:0,treble:0,reverb:0,vol:1}:item.ctl;
         src.playbackRate.value=(mode==='orig')?1:(item.ctl.speed||1);
-        src.detune.value=(mode==='orig')?0:(1200*Math.log2(item.ctl.pitch||1));
         chain=buildChain(ctx,src,ctl);
         const base=(mode==='orig')?0:item.ctl.ts;
         src.start(0, base+playedBT, Math.max(0.01,curDur-playedBT));
@@ -1744,7 +1761,7 @@ window.addEventListener('resize',skyReflow);
       ctrls.appendChild(mk('Trim in',0,dur,0.01,item.ctl.ts,v=>fmtTime(v),v=>{item.ctl.ts=Math.min(v,item.ctl.te-0.05)},onTrim));
       ctrls.appendChild(mk('Trim out',0,dur,0.01,item.ctl.te,v=>fmtTime(v),v=>{item.ctl.te=Math.max(v,item.ctl.ts+0.05)},onTrim));
       ctrls.appendChild(mk('Speed',0.25,3,0.05,item.ctl.speed,v=>v.toFixed(2)+'x',v=>{item.ctl.speed=v},v=>{ if(playing&&srcRef)srcRef.playbackRate.value=v; }));
-      ctrls.appendChild(mk('Pitch',0.5,2,0.05,item.ctl.pitch,v=>v.toFixed(2)+'x',v=>{item.ctl.pitch=v},v=>{ if(playing&&srcRef)srcRef.detune.value=1200*Math.log2(v||1); }));
+      ctrls.appendChild(mk('Pitch',0.5,2,0.05,item.ctl.pitch,v=>v.toFixed(2)+'x',v=>{item.ctl.pitch=v},null,v=>{ item._pitchKey=null; if(typeof updateInvert==='function')updateInvert(); if(playing){ setStatus('memproses pitch…'); setTimeout(()=>{ restart(); setStatus(''); },10); } }));
       ctrls.appendChild(mk('Bass',-15,15,1,item.ctl.bass,v=>(v>0?'+':'')+v+' dB',v=>{item.ctl.bass=v},v=>{ if(chain)chain.bass.gain.value=v; }));
       ctrls.appendChild(mk('Treble',-15,15,1,item.ctl.treble,v=>(v>0?'+':'')+v+' dB',v=>{item.ctl.treble=v},v=>{ if(chain)chain.treble.gain.value=v; }));
       ctrls.appendChild(mk('Reverb',0,0.9,0.05,item.ctl.reverb,v=>Math.round(v*100)+'%',v=>{item.ctl.reverb=v},v=>{ if(chain)chain.wet.gain.value=v; }));
@@ -1752,7 +1769,7 @@ window.addEventListener('resize',skyReflow);
       el.appendChild(ctrls);
 
       const pitchNote=document.createElement('div');pitchNote.className='au-fix-hint';pitchNote.style.margin='0 0 10px';
-      pitchNote.innerHTML='ℹ️ <b>Speed & Pitch</b> di sini tape-style (mulus, nada+tempo geser bareng) — sama kayak <b>PlaybackSpeed</b> Roblox. Angka di bawah = attribute buat di Studio.';
+      pitchNote.innerHTML='ℹ️ <b>Speed</b> = tape (nada+tempo bareng, = <b>PlaybackSpeed</b> Roblox). <b>Pitch</b> = independent (nada aja, tempo tetap, = <b>PitchShiftSoundEffect.Octave</b>) — preview agak kasar, hasil di Studio lebih mulus.';
       el.appendChild(pitchNote);
 
       const invRow=document.createElement('div');invRow.className='au-invert';invRow.style.flexDirection='column';invRow.style.alignItems='stretch';invRow.style.gap='6px';
